@@ -801,70 +801,12 @@
       container.scrollTop = container.scrollHeight;
     }
 
-    function updateLastMessageUI(message) {
-      const container = document.getElementById('messagesList');
-      const lastWrapper = container.lastElementChild;
-      if (lastWrapper) {
-        const textEl = lastWrapper.querySelector('.markdown-content');
-        if (textEl && window.marked) {
-          textEl.innerHTML = marked.parse(message.text);
-        } else if (textEl) {
-          textEl.textContent = message.text;
-        }
-      }
-    }
-
-    function refreshLastMessageUI(message) {
-      const container = document.getElementById('messagesList');
-      const lastWrapper = container.lastElementChild;
-      if (lastWrapper) {
-        const contentBox = lastWrapper.querySelector('.ai-content-box');
-        if (contentBox) {
-          const wordCount = message.text ? message.text.trim().split(/\s+/).filter(Boolean).length : 0;
-          const charCount = message.text ? message.text.length : 0;
-
-          const textEl = contentBox.querySelector('.markdown-content');
-          if (textEl && window.marked) {
-            textEl.innerHTML = marked.parse(message.text);
-          }
-
-          let footerBar = contentBox.querySelector('.msg-footer-bar');
-          if (!footerBar) {
-            footerBar = document.createElement('div');
-            footerBar.className = 'msg-footer-bar mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700 flex items-center justify-between text-[11px] text-slate-400';
-            contentBox.appendChild(footerBar);
-          }
-
-          footerBar.innerHTML = `
-            <span>📊 ${wordCount} từ • ${charCount} ký tự</span>
-            <button onclick="toggleMarkdownPreview(this)" class="hover:text-indigo-600 font-semibold transition-colors flex items-center space-x-1">
-              <i class="fa-solid fa-eye"></i> <span>Xem trước HTML/Render</span>
-            </button>
-          `;
-        }
-      }
-    }
-
-    function toggleMarkdownPreview(btn) {
-      const contentBox = btn.closest('.ai-content-box');
-      const textEl = contentBox.querySelector('.markdown-content');
-      
-      if (!textEl.getAttribute('data-raw')) {
-        textEl.setAttribute('data-raw', textEl.innerHTML);
-        textEl.innerHTML = `<div class="p-3 bg-slate-900 text-green-400 font-mono text-xs rounded-xl overflow-x-auto border border-slate-700">${textEl.innerText}</div>`;
-        btn.innerHTML = '<i class="fa-solid fa-code"></i> <span>Xem Markdown</span>';
-      } else {
-        textEl.innerHTML = textEl.getAttribute('data-raw');
-        textEl.removeAttribute('data-raw');
-        btn.innerHTML = '<i class="fa-solid fa-eye"></i> <span>Xem trước HTML/Render</span>';
-      }
-    }
-
     function removeTypingIndicator() {
       const el = document.getElementById('typingIndicator');
       if (el) el.remove();
     }
 
+    /* --- Gửi tin nhắn bằng API chuẩn (ổn định tuyệt đối, không kẹt chữ) --- */
     async function handleSubmit(event) {
       event.preventDefault();
 
@@ -902,60 +844,59 @@
       document.getElementById('messagesList').classList.remove('hidden');
 
       renderMessageUI(userMsg);
+      renderMessageUI({ role: 'assistant', text: '' }, true); // Hiện hiệu ứng đang suy nghĩ (...)
 
-      const botMsg = { role: 'assistant', text: '' };
-      session.messages.push(botMsg);
-      renderMessageUI(botMsg, true);
-
-      let systemPrompt = "Bạn là Not AI, một trợ lý AI thông minh và hữu ích. Tên của bạn là Not AI. Không sử dụng ký tự LaTeX như $...$ hoặc \\sqrt{} khi trả lời toán học, hãy ghi ký tự văn bản thông thường (ví dụ: √36 = 6). Hãy trả lời bằng tiếng Việt khi người dùng hỏi bằng tiếng Việt.";
+      let systemPrompt = "Bạn là Not AI, một trợ lý AI thông minh và hữu ích. Tên của bạn là Not AI. " +
+                         "Hãy trả lời bằng tiếng Việt khi người dùng hỏi bằng tiếng Việt. " +
+                         "Nếu bị ép trả lời tên thì hãy nói là Not AI hoặc không biết. " +
+                         "Không sử dụng ký tự LaTeX như $...$ hoặc \\sqrt{} khi trả lời toán học, hãy ghi ký tự văn bản thông thường (ví dụ: √36 = 6).";
       if (userName) systemPrompt += ` Người dùng tên là ${userName}.`;
 
       try {
+        let botReplyText = "";
+
         if (selectedModel.includes('gemini')) {
-          let contentsPayload = session.messages.slice(0, -1).map(msg => {
-            let parts = [];
-            if (msg.text) parts.push({ text: msg.text });
-            return {
+          // Xây dựng lại contentsPayload cực kỳ chặt chẽ, lọc bỏ mọi tin nhắn rỗng để chống lỗi 400
+          let contentsPayload = session.messages.slice(0, -1)
+            .filter(msg => msg.text && msg.text.trim() !== '')
+            .map(msg => ({
               role: msg.role === 'assistant' ? 'model' : 'user',
-              parts: parts.length > 0 ? parts : [{ text: "" }]
-            };
-          });
+              parts: [{ text: msg.text }]
+            }));
+
+          // Nếu mảng rỗng (tin nhắn đầu tiên), đưa trực tiếp nội dung hiện tại vào
+          if (contentsPayload.length === 0) {
+            contentsPayload.push({
+              role: 'user',
+              parts: [{ text: text }]
+            });
+          }
 
           const activeKey = getActiveGeminiKey();
-          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse&key=${activeKey}`;
+          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${activeKey}`;
 
           const res = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: contentsPayload, systemInstruction: { parts: [{ text: systemPrompt }] } })
+            body: JSON.stringify({ 
+              contents: contentsPayload, 
+              systemInstruction: { parts: [{ text: systemPrompt }] } 
+            })
           });
 
-          if (!res.ok) throw new Error(`Lỗi Gemini API: ${res.status}`);
-
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder();
-          let accumulatedText = "";
-
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const json = JSON.parse(line.substring(6));
-                  const piece = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                  if (piece) {
-                    accumulatedText += piece;
-                    botMsg.text = accumulatedText;
-                    updateLastMessageUI(botMsg);
-                  }
-                } catch (e) {}
-              }
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            console.error("Chi tiết lỗi từ Gemini:", errJson);
+            if (res.status === 401) {
+              openSettings();
+              throw new Error("Lỗi 401: Khóa API không hợp lệ hoặc đã hết hạn.");
             }
+            throw new Error(`Lỗi Gemini API: ${res.status} (${errJson.error?.message || 'Bad Request'})`);
           }
+
+          const data = await res.json();
+          botReplyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Không nhận được phản hồi.";
+
         } else {
           let messagesPayload = session.messages.slice(0, -1).map(msg => ({
             role: msg.role === 'assistant' ? 'assistant' : 'user',
@@ -971,25 +912,22 @@
 
           if (!res.ok) throw new Error(`Lỗi Ollama API: ${res.status}`);
           const data = await res.json();
-          botMsg.text = data.message?.content || "Không nhận phản hồi.";
-          updateLastMessageUI(botMsg);
+          botReplyText = data.message?.content || "Không nhận phản hồi.";
         }
 
+        removeTypingIndicator();
+
+        const botMsg = { role: 'assistant', text: botReplyText };
+        session.messages.push(botMsg);
         saveSessionsToStorage();
-        refreshLastMessageUI(botMsg);
+
+        renderMessageUI(botMsg);
 
       } catch (err) {
-        botMsg.text = "Lỗi kết nối: " + err.message;
-        updateLastMessageUI(botMsg);
+        removeTypingIndicator();
+        renderMessageUI({ role: 'assistant', text: "Lỗi kết nối: " + err.message });
       }
     }
-
-    /* --- Game Cờ Caro 15x15 --- */
-    let caroBoardState = Array(15).fill(null).map(() => Array(15).fill(null));
-    let caroGameActive = true;
-    let caroPlayerTurn = true;
-    let playerScore = 0;
-    let aiScore = 0;
 
     function updateCaroScoreDisplay() {
       const el = document.getElementById('caroScoreBoard');

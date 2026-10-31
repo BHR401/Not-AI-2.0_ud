@@ -24,11 +24,6 @@
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
     .typing-dot:nth-child(2) { animation-delay: -0.16s; }
     @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
-    
-    .drag-active {
-      border-color: #6366f1 !important;
-      background-color: #f1f5f9 !important;
-    }
 
     .mic-recording {
       animation: pulse-red 1.5s infinite;
@@ -40,12 +35,19 @@
       100% { transform: scale(1); }
     }
 
-    /* Phông nền cho chế độ Thư giãn (Cờ caro) */
+    /* Phông nền VÀNG chuyên tạo ảnh */
+    .image-mode-bg {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%) !important;
+    }
+    .dark .image-mode-bg {
+      background: linear-gradient(135deg, #451a03 0%, #78350f 50%, #b45309 100%) !important;
+    }
+
+    /* Phông nền Cờ Caro */
     .relax-bg {
       background: linear-gradient(135deg, #0d1b2a 0%, #1b1b3a 40%, #2b1035 70%, #3a0ca3 100%);
     }
 
-    /* Bàn cờ caro 15x15 */
     .caro-grid {
       display: grid;
       grid-template-columns: repeat(15, minmax(0, 1fr));
@@ -75,9 +77,6 @@
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 </head>
 <body class="bg-[#f8fafd] dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex overflow-hidden transition-colors">
 
@@ -95,14 +94,24 @@
       </div>
 
       <div class="space-y-1 mb-4 text-slate-700 dark:text-slate-200 text-xs font-medium">
-        <div class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700 cursor-pointer transition-colors">
-          <i class="fa-solid fa-box-archive text-sm w-5"></i>
+        <div class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-image text-amber-600 dark:text-amber-400"></i>
+            <span class="sidebar-text font-semibold">Tạo ảnh hôm nay</span>
+          </div>
+          <span id="imageLimitBadge" class="font-bold text-xs bg-amber-200 dark:bg-amber-800 px-2 py-0.5 rounded-md">10/10</span>
+        </div>
+
+        <div onclick="openLibraryModal()" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+          <i class="fa-solid fa-box-archive text-sm w-5 text-indigo-500"></i>
           <span class="sidebar-text">Thư viện</span>
         </div>
+        
         <div class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700 cursor-pointer transition-colors">
           <i class="fa-solid fa-clock-rotate-left text-sm w-5"></i>
           <span class="sidebar-text">Lịch sử nâng cao</span>
         </div>
+
         <div onclick="openRelaxMode()" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 text-purple-800 dark:text-purple-200 font-semibold cursor-pointer transition-colors">
           <i class="fa-solid fa-gamepad text-sm w-5 text-purple-600 dark:text-purple-400"></i>
           <span class="sidebar-text">Thư giãn</span>
@@ -143,8 +152,8 @@
     </div>
   </aside>
 
-  <!-- Trang Chat / Main Content -->
-  <div id="chatInterface" class="flex-1 flex flex-col h-full min-w-0 bg-[#f8fafd] dark:bg-slate-900 relative">
+  <!-- Main Chat Interface -->
+  <div id="chatInterface" class="flex-1 flex flex-col h-full min-w-0 bg-[#f8fafd] dark:bg-slate-900 relative transition-all duration-300">
     
     <header class="px-6 py-3.5 flex items-center justify-between z-10 border-b border-slate-200/50 dark:border-slate-800">
       <div class="flex items-center space-x-3">
@@ -152,7 +161,7 @@
           <i class="fa-solid fa-bars text-lg"></i>
         </button>
         <div class="flex items-center space-x-2">
-          <h1 class="font-bold text-slate-800 dark:text-white text-base">Not AI 2.0</h1>
+          <h1 class="font-bold text-slate-800 dark:text-white text-base" id="appTitleHeader">Not AI 2.0</h1>
           <span id="modelBadge" class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold px-2.5 py-0.5 rounded-full">Gemini 3.5 Flash-Lite</span>
         </div>
       </div>
@@ -168,7 +177,7 @@
           <i class="fa-solid fa-gear text-base"></i>
         </button>
 
-        <button onclick="clearChat()" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors" title="Xóa đoạn chat hiện tại">
+        <button onclick="clearChat()" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors" title="Xóa đoạn chat">
           <i class="fa-solid fa-trash-can text-sm"></i>
         </button>
       </div>
@@ -176,8 +185,8 @@
 
     <main id="chatContainer" class="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar max-w-4xl mx-auto w-full flex flex-col">
       <div id="welcomeScreen" class="my-auto text-center space-y-4 py-12">
-        <h2 class="text-3xl sm:text-4xl font-semibold text-slate-800 dark:text-white tracking-tight">Chúng ta nên bắt đầu từ đâu nhỉ?</h2>
-        <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto">Nhập câu hỏi, đính kèm file/hình ảnh hoặc kéo thả vào đây để giao tiếp cùng Not AI.</p>
+        <h2 class="text-3xl sm:text-4xl font-semibold text-slate-800 dark:text-white tracking-tight" id="welcomeHeading">Chúng ta nên bắt đầu từ đâu nhỉ?</h2>
+        <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto" id="welcomeSubtext">Nhập câu hỏi, gõ "vẽ ảnh..." để tạo ảnh AI, hoặc đính kèm tệp/hình ảnh để bắt đầu.</p>
       </div>
 
       <div id="messagesList" class="space-y-6 w-full hidden"></div>
@@ -189,7 +198,6 @@
         <div id="imagePreviewContainer" class="hidden flex-wrap gap-2 px-3 pt-1 pb-2 border-b border-slate-100 dark:border-slate-700 mb-2"></div>
 
         <div class="flex items-center space-x-2">
-          <!-- Nút đính kèm nhận diện cả Ảnh, Code và Văn bản -->
           <button type="button" onclick="document.getElementById('imageFileInput').click()" class="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0" title="Đính kèm tệp/hình ảnh">
             <i class="fa-solid fa-plus text-base"></i>
           </button>
@@ -198,7 +206,7 @@
           <textarea 
             id="userInput" 
             rows="1" 
-            placeholder="Hỏi Not AI hoặc kéo thả file/ảnh vào đây..." 
+            placeholder="Hỏi Not AI, gõ 'vẽ con mèo...' hoặc kéo thả file/ảnh..." 
             class="flex-1 bg-transparent border-0 focus:ring-0 resize-none max-h-32 py-2 px-1 text-slate-800 dark:text-slate-100 placeholder-slate-400 text-sm custom-scrollbar"
             onkeydown="handleKeyDown(event)"
             oninput="handleInputChange(this)"
@@ -217,16 +225,72 @@
           <button 
             type="submit" 
             id="sendButton"
-            class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all shadow-md shadow-indigo-100 dark:shadow-none flex-shrink-0 disabled:opacity-40"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-9 h-9 flex items-center justify-center transition-all shadow-md flex-shrink-0"
           >
             <i class="fa-solid fa-arrow-up text-sm"></i>
           </button>
         </div>
       </form>
       <div class="text-center mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-        Not AI có thể đưa ra thông tin chưa chính xác. Tự động lưu lịch sử local.
+        Not AI 2.0 • Tự động lưu lịch sử & Tham chiếu mọi cuộc trò chuyện.
       </div>
     </footer>
+  </div>
+
+  <!-- Modal Thư viện -->
+  <div id="libraryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 text-center">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-100 dark:border-slate-700">
+        <h3 class="font-bold text-slate-900 dark:text-white text-lg flex items-center space-x-2">
+          <i class="fa-solid fa-box-archive text-indigo-500"></i>
+          <span>Thư Viện Ứng Dụng</span>
+        </h3>
+        <button onclick="closeLibraryModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Chọn một tính năng để trải nghiệm:</p>
+      
+      <div class="space-y-3 pt-2">
+        <button onclick="closeLibraryModal(); openRelaxMode();" class="w-full py-3 px-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-200 font-bold text-sm flex items-center justify-between transition-all">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-gamepad text-lg text-purple-600 dark:text-purple-400"></i>
+            <span>Thư giãn (Cờ Caro AI)</span>
+          </div>
+          <i class="fa-solid fa-chevron-right text-xs opacity-60"></i>
+        </button>
+
+        <button onclick="closeLibraryModal(); openImageKeyModal();" class="w-full py-3 px-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 font-bold text-sm flex items-center justify-between transition-all">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-palette text-lg text-amber-600 dark:text-amber-400"></i>
+            <span>Tạo ảnh AI (FLUX Pro)</span>
+          </div>
+          <i class="fa-solid fa-chevron-right text-xs opacity-60"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Kích hoạt Chế độ Tạo Ảnh Nền Vàng -->
+  <div id="imageKeyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-amber-500 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3 border-slate-100 dark:border-slate-700">
+        <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center space-x-2">
+          <i class="fa-solid fa-key text-amber-500"></i>
+          <span>Kích Hoạt Chế Độ Tạo Ảnh AI</span>
+        </h3>
+        <button onclick="closeImageKeyModal()" class="text-slate-400 hover:text-slate-600 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-600 dark:text-slate-300 font-medium">Bấm kích hoạt bên dưới để mở giao diện Nền Vàng chuyên biệt và tạo ảnh siêu nét bằng mô hình FLUX:</p>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+        <button onclick="closeImageKeyModal()" class="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 text-xs font-semibold">Đóng</button>
+        <button onclick="activateYellowImageMode()" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition-all shadow-md">Kích Hoạt Nền Vàng</button>
+      </div>
+    </div>
   </div>
 
   <!-- Giao diện Cờ Caro AI 15x15 -->
@@ -292,6 +356,17 @@
 
       <div class="space-y-1.5">
         <label class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block flex items-center space-x-1.5">
+          <i class="fa-solid fa-ticket text-amber-500"></i>
+          <span>Nhập Mã Giftcode / VIP Code</span>
+        </label>
+        <div class="flex space-x-2">
+          <input type="text" id="giftcodeInput" placeholder="Nhập mã nâng lượt..." class="flex-1 px-3.5 py-2 rounded-xl border-2 border-amber-300 dark:border-amber-700 dark:bg-slate-900 focus:border-amber-500 outline-none text-sm font-semibold text-slate-800 dark:text-white uppercase">
+          <button type="button" onclick="applyGiftcode()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition-all shadow-md">Đổi Mã</button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block flex items-center space-x-1.5">
           <i class="fa-solid fa-moon text-blue-600"></i>
           <span>Giao diện Theme</span>
         </label>
@@ -349,21 +424,121 @@
     let currentTheme = localStorage.getItem('not_ai_theme') || 'light';
 
     let storedCustomKey = localStorage.getItem('not_ai_gemini_key') || '';
+    let isImageGeneratorMode = false;
+
+    const DEFAULT_DAILY_IMAGE_LIMIT = 10;
+    
+    function getTodayString() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function getImageLimitData() {
+      const stored = JSON.parse(localStorage.getItem('not_ai_img_limit_data')) || {};
+      const today = getTodayString();
+      if (stored.date !== today) {
+        const maxLimit = parseInt(localStorage.getItem('not_ai_custom_img_max')) || DEFAULT_DAILY_IMAGE_LIMIT;
+        const newData = { date: today, used: 0, max: maxLimit };
+        localStorage.setItem('not_ai_img_limit_data', JSON.stringify(newData));
+        return newData;
+      }
+      return stored;
+    }
+
+    function updateImageLimitUI() {
+      const data = getImageLimitData();
+      const badge = document.getElementById('imageLimitBadge');
+      if (badge) {
+        const remaining = Math.max(0, data.max - data.used);
+        badge.textContent = `${remaining}/${data.max}`;
+        if (remaining === 0) {
+          badge.className = "font-bold text-xs bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-md";
+        } else {
+          badge.className = "font-bold text-xs bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-md";
+        }
+      }
+    }
+
+    function consumeImageLimit() {
+      const data = getImageLimitData();
+      if (data.used >= data.max) {
+        return false;
+      }
+      data.used += 1;
+      localStorage.setItem('not_ai_img_limit_data', JSON.stringify(data));
+      updateImageLimitUI();
+      return true;
+    }
+
+    function applyGiftcode() {
+      const input = document.getElementById('giftcodeInput');
+      const code = input ? input.value.trim().toUpperCase() : '';
+      if (!code) return;
+
+      if (code === 'NOTAI2026' || code === 'QUANPRO') {
+        localStorage.setItem('not_ai_custom_img_max', 50);
+        const data = getImageLimitData();
+        data.max = 50;
+        localStorage.setItem('not_ai_img_limit_data', JSON.stringify(data));
+        updateImageLimitUI();
+        alert('🎉 Đã kích hoạt Mã VIP! Giới hạn tạo ảnh tăng lên 50 lượt/ngày!');
+      } else if (code === 'UNLIMITED' || code === 'VIP100') {
+        localStorage.setItem('not_ai_custom_img_max', 999);
+        const data = getImageLimitData();
+        data.max = 999;
+        localStorage.setItem('not_ai_img_limit_data', JSON.stringify(data));
+        updateImageLimitUI();
+        alert('🚀 Đã mở khóa VÔ HẠN LƯỢT tạo ảnh mỗi ngày!');
+      } else {
+        alert('❌ Mã Giftcode không hợp lệ!');
+      }
+      if (input) input.value = '';
+    }
     
     function getActiveGeminiKey() {
       return storedCustomKey ? storedCustomKey.trim() : '';
     }
 
+    /* --- POPUP & CHẾ ĐỘ TẠO ẢNH NỀN VÀNG (FLUX) --- */
+    function openLibraryModal() {
+      document.getElementById('libraryModal').classList.remove('hidden');
+      document.getElementById('libraryModal').classList.add('flex');
+    }
+
+    function closeLibraryModal() {
+      document.getElementById('libraryModal').classList.remove('flex');
+      document.getElementById('libraryModal').classList.add('hidden');
+    }
+
+    function openImageKeyModal() {
+      document.getElementById('imageKeyModal').classList.remove('hidden');
+      document.getElementById('imageKeyModal').classList.add('flex');
+    }
+
+    function closeImageKeyModal() {
+      document.getElementById('imageKeyModal').classList.remove('flex');
+      document.getElementById('imageKeyModal').classList.add('hidden');
+    }
+
+    function activateYellowImageMode() {
+      closeImageKeyModal();
+
+      isImageGeneratorMode = true;
+      const chatUI = document.getElementById('chatInterface');
+      chatUI.classList.add('image-mode-bg');
+      
+      document.getElementById('appTitleHeader').textContent = "Not AI 2.0 • Chế Độ Tạo Ảnh AI (FLUX) 🎨";
+      document.getElementById('userInput').placeholder = "Nhập mô tả bức ảnh bạn muốn tạo (Ví dụ: con mèo cyberpunk, phong cảnh thiên nhiên)...";
+      document.getElementById('welcomeHeading').textContent = "🎨 Chế Độ Tạo Ảnh Chuyên Nghiệp";
+      document.getElementById('welcomeSubtext').textContent = "Gõ bất kỳ mô tả nào vào khung dưới đây, AI sẽ tạo ra bức ảnh hoàn chỉnh cho bạn lập tức!";
+
+      startNewChat(true);
+      alert("✨ Đã kích hoạt Chế độ Nền Vàng VIP tạo ảnh FLUX thành công!");
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       setTheme(currentTheme, false);
-
-      const oldDefaultKey = "...";
-      if (localStorage.getItem('not_ai_gemini_key') === oldDefaultKey || localStorage.getItem('not_ai_gemini_key') === "...") {
-        localStorage.removeItem('not_ai_gemini_key');
-        storedCustomKey = '';
-      }
-
       updateUserUI();
+      updateImageLimitUI();
       setupSpeechRecognition();
       setupDragAndDrop();
       initCaroBoard();
@@ -374,10 +549,6 @@
         if (!currentSessionId) currentSessionId = sessions[0].id;
         renderSessionList();
         loadSession(currentSessionId);
-      }
-
-      if (!localStorage.getItem('not_ai_gemini_key')) {
-        openSettings();
       }
     });
 
@@ -513,7 +684,7 @@
     function startNewChat(shouldRender = true) {
       const newSession = {
         id: 'session_' + Date.now(),
-        title: 'Cuộc trò chuyện mới',
+        title: isImageGeneratorMode ? 'Tạo ảnh mới' : 'Cuộc trò chuyện mới',
         messages: [],
         updatedAt: new Date().toISOString()
       };
@@ -629,7 +800,6 @@
       event.target.value = '';
     }
 
-    /* --- Bộ Xử Lý File: Đọc cả Ảnh, Mã Code và Văn Bản --- */
     function handleFileSelect(e) {
       processFiles(Array.from(e.target.files));
       e.target.value = '';
@@ -722,7 +892,7 @@
 
       const avatar = document.createElement('div');
       avatar.className = `w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold ${
-        isUser ? 'bg-slate-800 dark:bg-slate-700' : 'bg-indigo-600'
+        isUser ? 'bg-slate-800 dark:bg-slate-700' : 'bg-amber-600'
       }`;
       avatar.textContent = isUser ? userName.charAt(0).toUpperCase() : 'N';
 
@@ -745,8 +915,8 @@
           imgWrap.className = 'flex flex-wrap gap-2 mb-2';
           message.images.forEach(url => {
             const img = document.createElement('img');
-            img.src = url.startsWith('data:') ? url : `data:image/jpeg;base64,${url}`;
-            img.className = 'w-28 h-28 object-cover rounded-xl border border-white/20';
+            img.src = url.startsWith('data:') || url.startsWith('http') ? url : `data:image/jpeg;base64,${url}`;
+            img.className = 'w-48 sm:w-64 h-auto object-cover rounded-xl border border-white/20 shadow-sm';
             imgWrap.appendChild(img);
           });
           contentBox.appendChild(imgWrap);
@@ -762,37 +932,6 @@
           textEl.textContent = formattedText;
         }
         contentBox.appendChild(textEl);
-
-        if (!isUser && message.text) {
-          const wordCount = message.text.trim().split(/\s+/).filter(Boolean).length;
-          const charCount = message.text.length;
-
-          const footerBar = document.createElement('div');
-          footerBar.className = 'mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700 flex items-center justify-between text-[11px] text-slate-400';
-          footerBar.innerHTML = `
-            <span>📊 ${wordCount} từ • ${charCount} ký tự</span>
-            <button onclick="toggleMarkdownPreview(this)" class="hover:text-indigo-600 font-semibold transition-colors flex items-center space-x-1">
-              <i class="fa-solid fa-eye"></i> <span>Xem trước HTML/Render</span>
-            </button>
-          `;
-          contentBox.appendChild(footerBar);
-        }
-
-        contentBox.querySelectorAll('pre').forEach((pre) => {
-          if (!pre.querySelector('.copy-code-btn')) {
-            pre.style.position = 'relative';
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'copy-code-btn absolute top-2 right-2 bg-slate-700 hover:bg-slate-600 text-white text-[10px] px-2 py-1 rounded-md transition-all shadow';
-            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Sao chép';
-            copyBtn.onclick = () => {
-              const codeText = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
-              navigator.clipboard.writeText(codeText);
-              copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Đã chép!';
-              setTimeout(() => { copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Sao chép'; }, 2000);
-            };
-            pre.appendChild(copyBtn);
-          }
-        });
       }
 
       wrapper.appendChild(avatar);
@@ -806,13 +945,12 @@
       if (el) el.remove();
     }
 
-    /* --- Gửi tin nhắn bằng API chuẩn (ổn định tuyệt đối, không kẹt chữ) --- */
+    /* --- XỬ LÝ GỬI TIN NHẮN & GỌI MODEL FLUX TẠO ẢNH --- */
     async function handleSubmit(event) {
       event.preventDefault();
 
       const inputEl = document.getElementById('userInput');
       const text = inputEl.value.trim();
-      const selectedModel = document.getElementById('modelSelect').value;
 
       if (!text && attachedImages.length === 0) return;
 
@@ -844,83 +982,91 @@
       document.getElementById('messagesList').classList.remove('hidden');
 
       renderMessageUI(userMsg);
-      renderMessageUI({ role: 'assistant', text: '' }, true); // Hiện hiệu ứng đang suy nghĩ (...)
+      renderMessageUI({ role: 'assistant', text: '' }, true);
 
-      let systemPrompt = "Bạn là Not AI, một trợ lý AI thông minh và hữu ích. Tên của bạn là Not AI. " +
-                         "Hãy trả lời bằng tiếng Việt khi người dùng hỏi bằng tiếng Việt. " +
-                         "Nếu bị ép trả lời tên thì hãy nói là Not AI hoặc không biết. " +
-                         "Không sử dụng ký tự LaTeX như $...$ hoặc \\sqrt{} khi trả lời toán học, hãy ghi ký tự văn bản thông thường (ví dụ: √36 = 6).";
+      // --- KIỂM TRA ĐIỀU KIỆN TẠO ẢNH (POLLINATIONS FLUX) ---
+      const lowerText = text.toLowerCase();
+      const isExplicitImageReq = lowerText.includes('vẽ') || lowerText.includes('tạo ảnh') || lowerText.includes('draw');
+
+      if (isImageGeneratorMode || isExplicitImageReq) {
+        if (!consumeImageLimit()) {
+          removeTypingIndicator();
+          const limitMsg = { 
+            role: 'assistant', 
+            text: '⚠️ **Bạn đã hết lượt tạo ảnh hôm nay!** Hãy nhập mã VIP trong Cài đặt nhé.' 
+          };
+          session.messages.push(limitMsg);
+          saveSessionsToStorage();
+          renderMessageUI(limitMsg);
+          return;
+        }
+
+        // Tối ưu prompt gửi cho Pollinations FLUX
+        let promptText = text.replace(/(tạo cho tôi|vẽ cho tôi|tạo hình|vẽ ảnh)/gi, '').trim();
+        if (!promptText || promptText.length < 2) promptText = "beautiful digital art masterpiece, high quality, 4k";
+
+        const encodedPrompt = encodeURIComponent(promptText);
+        
+        // Sử dụng model FLUX kèm Secret Key cá nhân để không bị chờ
+        // Sử dụng Secret Key cá nhân của Quân ghép trực tiếp vào URL
+        const secretKey = "sk_oEuPbCKezUJlJdaEBhNwg84NMfg9xKIa";
+        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&width=1024&height=1024&nologo=true&key=${secretKey}&seed=${Math.floor(Math.random()*100000)}`;
+
+        removeTypingIndicator();
+        const botMsg = { 
+          role: 'assistant', 
+          text: `🖼️ **Ảnh AI (FLUX) tạo cho ${userName}:** "${text}"`,
+          images: [imageUrl]
+        };
+        session.messages.push(botMsg);
+        saveSessionsToStorage();
+        renderMessageUI(botMsg);
+        return;
+      }
+
+      // --- CHAT VĂN BẢN THÔNG THƯỜNG ---
+      let systemPrompt = "Bạn là Not AI, trợ lý AI thông minh. Trả lời bằng tiếng Việt. Không dùng ký tự LaTeX.";
       if (userName) systemPrompt += ` Người dùng tên là ${userName}.`;
 
       try {
-        let botReplyText = "";
-
-        if (selectedModel.includes('gemini')) {
-          // Xây dựng lại contentsPayload cực kỳ chặt chẽ, lọc bỏ mọi tin nhắn rỗng để chống lỗi 400
-          let contentsPayload = session.messages.slice(0, -1)
-            .filter(msg => msg.text && msg.text.trim() !== '')
-            .map(msg => ({
-              role: msg.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: msg.text }]
-            }));
-
-          // Nếu mảng rỗng (tin nhắn đầu tiên), đưa trực tiếp nội dung hiện tại vào
-          if (contentsPayload.length === 0) {
-            contentsPayload.push({
-              role: 'user',
-              parts: [{ text: text }]
+        let contentsPayload = session.messages.slice(0, -1).map((msg) => {
+          let parts = [];
+          if (msg.text) parts.push({ text: msg.text });
+          if (msg.images && msg.images.length > 0) {
+            msg.images.forEach(imgUrl => {
+              if (imgUrl.startsWith('data:')) {
+                const arr = imgUrl.split(',');
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                const base64Data = arr[1];
+                parts.push({ inlineData: { mimeType: mimeMatch ? mimeMatch[1] : 'image/jpeg', data: base64Data } });
+              }
             });
           }
+          if (parts.length === 0) parts.push({ text: "" });
+          return { role: msg.role === 'assistant' ? 'model' : 'user', parts: parts };
+        });
 
-          const activeKey = getActiveGeminiKey();
-          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${activeKey}`;
-
-          const res = await fetch(targetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              contents: contentsPayload, 
-              systemInstruction: { parts: [{ text: systemPrompt }] } 
-            })
-          });
-
-          if (!res.ok) {
-            const errJson = await res.json().catch(() => ({}));
-            console.error("Chi tiết lỗi từ Gemini:", errJson);
-            if (res.status === 401) {
-              openSettings();
-              throw new Error("Lỗi 401: Khóa API không hợp lệ hoặc đã hết hạn.");
-            }
-            throw new Error(`Lỗi Gemini API: ${res.status} (${errJson.error?.message || 'Bad Request'})`);
-          }
-
-          const data = await res.json();
-          botReplyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Không nhận được phản hồi.";
-
-        } else {
-          let messagesPayload = session.messages.slice(0, -1).map(msg => ({
-            role: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: msg.text || ''
-          }));
-          messagesPayload.unshift({ role: 'system', content: systemPrompt });
-
-          const res = await fetch('http://localhost:11434/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: selectedModel, messages: messagesPayload, stream: false })
-          });
-
-          if (!res.ok) throw new Error(`Lỗi Ollama API: ${res.status}`);
-          const data = await res.json();
-          botReplyText = data.message?.content || "Không nhận phản hồi.";
+        if (contentsPayload.length > 0 && contentsPayload[contentsPayload.length - 1].role === 'model') {
+          contentsPayload.pop();
         }
 
-        removeTypingIndicator();
+        const activeKey = getActiveGeminiKey();
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${activeKey}`;
 
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: contentsPayload, systemInstruction: { parts: [{ text: systemPrompt }] } })
+        });
+
+        if (!res.ok) throw new Error(`Lỗi Gemini API: ${res.status}`);
+        const data = await res.json();
+        const botReplyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Không nhận được phản hồi.";
+
+        removeTypingIndicator();
         const botMsg = { role: 'assistant', text: botReplyText };
         session.messages.push(botMsg);
         saveSessionsToStorage();
-
         renderMessageUI(botMsg);
 
       } catch (err) {
@@ -928,6 +1074,13 @@
         renderMessageUI({ role: 'assistant', text: "Lỗi kết nối: " + err.message });
       }
     }
+
+    /* --- Game Cờ Caro 15x15 --- */
+    let caroBoardState = Array(15).fill(null).map(() => Array(15).fill(null));
+    let caroGameActive = true;
+    let caroPlayerTurn = true;
+    let playerScore = 0;
+    let aiScore = 0;
 
     function updateCaroScoreDisplay() {
       const el = document.getElementById('caroScoreBoard');
@@ -980,12 +1133,12 @@
       if (checkCaroWin(r, c, 'X')) {
         playerScore++;
         updateCaroScoreDisplay();
-        endCaroGame('Bạn đã thắng AI! Tự động chơi lại sau 2 giây...', 'text-green-400 font-bold');
+        endCaroGame('Bạn đã thắng AI! Tự động ván mới sau 2 giây...', 'text-green-400 font-bold');
         return;
       }
 
       if (isCaroBoardFull()) {
-        endCaroGame('Hòa cờ! Tự động reset bài chơi...', 'text-yellow-400 font-bold');
+        endCaroGame('Hòa cờ! Tự động ván mới sau 2 giây...', 'text-yellow-400 font-bold');
         return;
       }
 
@@ -1018,7 +1171,7 @@
 
       setTimeout(() => {
         resetCaroGame();
-      }, 2500);
+      }, 2000);
     }
 
     function isCaroBoardFull() {
@@ -1045,12 +1198,12 @@
         if (checkCaroWin(move.r, move.c, 'O')) {
           aiScore++;
           updateCaroScoreDisplay();
-          endCaroGame('AI đã thắng! Tự động làm mới trận cờ...', 'text-rose-400 font-bold');
+          endCaroGame('AI đã thắng! Tự động ván mới sau 2 giây...', 'text-rose-400 font-bold');
           return;
         }
 
         if (isCaroBoardFull()) {
-          endCaroGame('Hòa cờ! Tự động reset bài chơi...', 'text-yellow-400 font-bold');
+          endCaroGame('Hòa cờ! Tự động ván mới sau 2 giây...', 'text-yellow-400 font-bold');
           return;
         }
 
